@@ -170,7 +170,6 @@ def main():
     k4.metric("🔗 גרף",f"{G.number_of_nodes()} צמתים",f"{G.number_of_edges()} קשתות")
     st.divider()
     
-    st.sidebar.header("🏭 מחסנים")
 
     st.sidebar.header("🏭 מחסנים")
     st.sidebar.dataframe(pd.DataFrame([{'מזהה':w['id'],'עיר':w['city'],'עובדים':w['emp']} for w in WAREHOUSES]),hide_index=True)
