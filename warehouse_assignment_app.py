@@ -156,9 +156,8 @@ def main():
     k4.metric("🔗 גרף",f"{G.number_of_nodes()} צמתים",f"{G.number_of_edges()} קשתות")
     st.divider()
     
-    st.sidebar.header("⚙️ הגדרות")
-    algo=st.sidebar.radio("אלגוריתם:",['BFS','Dijkstra'])
-    st.sidebar.divider()
+    st.sidebar.header("🏭 מחסנים")
+
     st.sidebar.header("🏭 מחסנים")
     st.sidebar.dataframe(pd.DataFrame([{'מזהה':w['id'],'עיר':w['city'],'עובדים':w['emp']} for w in WAREHOUSES]),hide_index=True)
     st.sidebar.divider()
@@ -176,18 +175,16 @@ def main():
         with c1:
             city=st.selectbox("עיר יעד:",sorted(CITY_COORDS.keys()))
             if st.button("🔍 חשב שיוך",type="primary",use_container_width=True):
-                wh,d,p,res=assign_wh(city,G,algo)
-                wh_c=[w['city'] for w in WAREHOUSES if w['id']==wh][0]
-                st.success(f"✅ מחסן: **{wh}** ({wh_c})")
-                st.metric("מרחק",f"{d:.1f} km")
-                if p: st.info(f"🗺️ {' ← '.join(reversed(p))}")
-                st.dataframe(pd.DataFrame(res),hide_index=True,use_container_width=True)
-                st.session_state['dij_p']=p
-                # Also compute with other algo for comparison
-                other='Dijkstra' if algo=='BFS' else 'BFS'
-                _,_,p2,_=assign_wh(city,G,other)
-                st.session_state['bfs_p']=p2 if algo=='Dijkstra' else p
-                st.session_state['dij_p']=p if algo=='Dijkstra' else p2
+                wh_d,d_d,p_d,res_d=assign_wh(city,G,"Dijkstra")
+                wh_b,d_b,p_b,res_b=assign_wh(city,G,"BFS")
+                wh_c=[w["city"] for w in WAREHOUSES if w["id"]==wh_d][0]
+                st.success(f"✅ מחסן (Dijkstra): **{wh_d}** ({wh_c}) - {d_d:.1f} km")
+                st.info(f"✅ מחסן (BFS): **{wh_b}** - {d_b:.1f} km")
+                if p_d: st.markdown(f"🟢 Dijkstra: {" ← ".join(reversed(p_d))}")
+                if p_b and p_b!=p_d: st.markdown(f"🟠 BFS: {" ← ".join(reversed(p_b))}")
+                st.dataframe(pd.DataFrame(res_d),hide_index=True,use_container_width=True)
+                st.session_state["dij_p"]=p_d
+                st.session_state["bfs_p"]=p_b
         with c2:
             fig=draw_map(G,st.session_state.get('dij_p'),st.session_state.get('bfs_p'))
             st.plotly_chart(fig,key="map1",use_container_width=True)
