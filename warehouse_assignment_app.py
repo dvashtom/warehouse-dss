@@ -208,11 +208,10 @@ def main():
     G=build_graph()
     avg,busy,busy_n,far_city,far_d,assigns=compute_kpis()
     busy_c=[w['city'] for w in WAREHOUSES if w['id']==busy][0]
-    k1,k2,k3,k4=st.columns(4)
+    k1,k2,k3=st.columns(3)
     k1.metric("📏 מרחק ממוצע",f"{avg:.1f} km")
     k2.metric("🏭 מחסן עמוס",f"{busy} ({busy_c})",f"{busy_n} ערים")
-    k3.metric("🌍 עיר רחוקה",far_city,f"{far_d:.1f} km")
-    k4.metric("🔗 גרף",f"{G.number_of_nodes()} צמתים",f"{G.number_of_edges()} קשתות")
+    k3.metric("🔗 גרף",f"{G.number_of_nodes()} צמתים",f"{G.number_of_edges()} קשתות")
     st.divider()
     
 
