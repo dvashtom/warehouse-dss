@@ -43,6 +43,20 @@ WAREHOUSES = [
     {'id':'W03','city':'אשדוד','emp':14,'color':'#00CC96'},
 ]
 
+# Orders per city (from star_schema.xlsx ORDERS table)
+ORDERS_PER_CITY = {
+    'תל אביב': 283, 'באר שבע': 189, 'הרצליה': 172, 'ראשון לציון': 169,
+    'אשדוד': 153, 'ירושלים': 152, 'חיפה': 123, 'נתניה': 117,
+    'פתח תקווה': 113, 'רעננה': 81, 'רמת גן': 76, 'חולון': 74,
+    'מודיעין': 72, 'נהריה': 56, 'כפר סבא': 54, 'גבעתיים': 52,
+    'חצור הגלילית': 51, 'חדרה': 50, 'אילת': 42, 'קריית אונו': 40,
+    'לוד': 38, 'רחובות': 32, 'אשקלון': 24, 'דימונה': 23,
+    'עפולה': 20, 'מבשרת ציון': 20, 'גדרה': 17, 'כרמיאל': 15,
+    'רמלה': 14, 'אור יהודה': 12, 'יקנעם': 11, 'נשר': 11,
+    'יבנה': 10, 'טבריה': 10, 'מעלות': 9, 'פרדס חנה': 8,
+    'אריאל': 3, 'הוד השרון': 2, 'נס ציונה': 2,
+}
+
 def haversine(c1,c2):
     R=6371
     la1,lo1,la2,lo2=map(math.radians,[c1[0],c1[1],c2[0],c2[1]])
@@ -218,9 +232,27 @@ def main():
             st.plotly_chart(fig,key="comp_chart",use_container_width=True)
         else:
             st.success("✅ שני האלגוריתמים נותנים תוצאות זהות לכל הערים!")
-        st.markdown("### מפה מלאה")
-        fig2=draw_map(G)
-        st.plotly_chart(fig2,key="map2",use_container_width=True)
+        st.markdown("### 📊 עומס הזמנות לפי מחסן")
+        wh_load={w["id"]:0 for w in WAREHOUSES}
+        city_to_wh={}
+        for city in ORDERS_PER_CITY:
+            wh_id,_,_,_=assign_wh(city,G,"Dijkstra")
+            wh_load[wh_id]+=ORDERS_PER_CITY[city]
+            city_to_wh[city]=wh_id
+        fig_load=go.Figure()
+        colors=[w["color"] for w in WAREHOUSES]
+        wh_ids=[w["id"] for w in WAREHOUSES]
+        wh_labels=[f"{w["id"]} ({w["city"]})" for w in WAREHOUSES]
+        fig_load.add_trace(go.Bar(x=wh_labels,y=[wh_load[w] for w in wh_ids],marker_color=colors,text=[wh_load[w] for w in wh_ids],textposition="outside"))
+        fig_load.update_layout(title="עומס הזמנות לפי מחסן (2,400 הזמנות)",yaxis_title="מספר הזמנות",height=350)
+        st.plotly_chart(fig_load,key="load_chart",use_container_width=True)
+        st.markdown("### 🏙️ ערים לפי מחסן משויך")
+        for wh in WAREHOUSES:
+            cities_for_wh=[(c,ORDERS_PER_CITY[c]) for c in city_to_wh if city_to_wh[c]==wh["id"]]
+            cities_for_wh.sort(key=lambda x:-x[1])
+            total=sum(o for _,o in cities_for_wh)
+            st.markdown(f"**{wh["id"]} ({wh["city"]})** - {total} הזמנות מ-{len(cities_for_wh)} ערים:")
+            st.caption(", ".join([f"{c} ({n})" for c,n in cities_for_wh]))
     
     with tab3:
         st.subheader("📋 טבלת מרחקים ישירים (Haversine) מכל מחסן")
