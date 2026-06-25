@@ -123,38 +123,83 @@ def compute_kpis():
     busy=max(assigns,key=assigns.get)
     return avg,busy,assigns[busy],far_city,far_d,assigns
 
-def draw_map(G,dij_path=None,bfs_p=None):
-    fig=go.Figure()
-    ex,ey=[],[]
-    for e in G.edges():
-        x0,y0=CITY_COORDS[e[0]][1],CITY_COORDS[e[0]][0]
-        x1,y1=CITY_COORDS[e[1]][1],CITY_COORDS[e[1]][0]
-        ex+=[x0,x1,None]; ey+=[y0,y1,None]
-    fig.add_trace(go.Scatter(x=ex,y=ey,mode='lines',line=dict(width=0.4,color='rgba(180,180,180,0.4)'),hoverinfo='none',showlegend=False))
-    wn=[w['city'] for w in WAREHOUSES]
-    reg=[n for n in G.nodes() if n not in wn]
-    fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1] for c in reg],y=[CITY_COORDS[c][0] for c in reg],
-        mode='markers+text',text=reg,textposition='top center',textfont=dict(size=7,color='#555'),
-        marker=dict(size=7,color='#a8d5e2',line=dict(width=1,color='#2c7fb8')),showlegend=False,hoverinfo='text',
-        hovertext=[f"{c} ({CITY_COORDS[c][0]:.3f}N)" for c in reg]))
+def get_city_color(city, G):
+    """Get gradient color based on distance to nearest warehouse"""
+    min_d = float("inf")
     for wh in WAREHOUSES:
-        c=wh['city']
-        fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1]],y=[CITY_COORDS[c][0]],
-            mode='markers+text',text=[f"🏭 {wh['id']}"],textposition='bottom center',
-            textfont=dict(size=11,color=wh['color']),
-            marker=dict(size=18,color=wh['color'],symbol='square',line=dict(width=2,color='black')),
+        d = haversine(CITY_COORDS[wh["city"]], CITY_COORDS[city])
+        if d < min_d: min_d = d
+    if min_d <= 20: return "rgb(34,139,34)"  # green
+    elif min_d <= 50: return "rgb(255,200,0)"  # yellow
+    else: return "rgb(220,50,50)"  # red
+
+def draw_map(G, dij_path=None, bfs_p=None, animated=False):
+    fig = go.Figure()
+    ex, ey = [], []
+    for e in G.edges():
+        x0, y0 = CITY_COORDS[e[0]][1], CITY_COORDS[e[0]][0]
+        x1, y1 = CITY_COORDS[e[1]][1], CITY_COORDS[e[1]][0]
+        ex += [x0, x1, None]; ey += [y0, y1, None]
+    fig.add_trace(go.Scatter(x=ex, y=ey, mode="lines", line=dict(width=0.4, color="rgba(180,180,180,0.4)"), hoverinfo="none", showlegend=False))
+    wn = [w["city"] for w in WAREHOUSES]
+    reg = [n for n in G.nodes() if n not in wn]
+    # Gradient colors for cities
+    colors = [get_city_color(c, G) for c in reg]
+    # Enhanced tooltips
+    tooltips = []
+    for c in reg:
+        min_d, nearest_wh = float("inf"), ""
+        for wh in WAREHOUSES:
+            d = haversine(CITY_COORDS[wh["city"]], CITY_COORDS[c])
+            if d < min_d: min_d = d; nearest_wh = wh["id"]
+        tooltips.append(f"{c}<br>מרחק למחסן קרוב: {min_d:.1f} km<br>מחסן: {nearest_wh}")
+    fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1] for c in reg], y=[CITY_COORDS[c][0] for c in reg],
+        mode="markers+text", text=reg, textposition="top center", textfont=dict(size=7, color="#555"),
+        marker=dict(size=9, color=colors, line=dict(width=1, color="black")),
+        showlegend=False, hoverinfo="text", hovertext=tooltips))
+    for wh in WAREHOUSES:
+        c = wh["city"]
+        fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1]], y=[CITY_COORDS[c][0]],
+            mode="markers+text", text=[f"🏭 {wh['id']}"], textposition="bottom center",
+            textfont=dict(size=11, color=wh["color"]),
+            marker=dict(size=18, color=wh["color"], symbol="square", line=dict(width=2, color="black")),
             name=f"{wh['id']}-{c}"))
-    if dij_path and len(dij_path)>1:
-        fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1] for c in dij_path],y=[CITY_COORDS[c][0] for c in dij_path],
-            mode='lines+markers',line=dict(width=5,color='#00CC96'),marker=dict(size=12,color='#00CC96'),name='Dijkstra'))
-    if bfs_p and len(bfs_p)>1:
-        fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1] for c in bfs_p],y=[CITY_COORDS[c][0] for c in bfs_p],
-            mode='lines+markers',line=dict(width=4,color='#FFA500',dash='dash'),marker=dict(size=10,color='#FFA500',symbol='diamond'),name='BFS'))
-    fig.update_layout(height=620,margin=dict(l=0,r=0,t=30,b=0),
-        xaxis=dict(title='Longitude',range=[34.2,35.7],gridcolor='rgba(0,0,0,0.05)'),
-        yaxis=dict(title='Latitude',range=[29.3,33.3],gridcolor='rgba(0,0,0,0.05)'),
-        title='מפת ישראל - 39 ערים, 3 מחסנים',legend=dict(x=0.01,y=0.99,bgcolor='rgba(255,255,255,0.8)'),
-        plot_bgcolor='rgba(240,248,255,0.3)')
+    # Dijkstra path with tooltips
+    if dij_path and len(dij_path) > 1:
+        cum_dist = [0]
+        for i in range(1, len(dij_path)):
+            cum_dist.append(cum_dist[-1] + haversine(CITY_COORDS[dij_path[i-1]], CITY_COORDS[dij_path[i]]))
+        path_tips = [f"{dij_path[i]}<br>קפיצה {i}/{len(dij_path)-1}<br>מרחק מצטבר: {cum_dist[i]:.1f} km<br>מחסן: {dij_path[0]}" for i in range(len(dij_path))]
+        if animated:
+            for step in range(2, len(dij_path)+1):
+                fig.add_trace(go.Scatter(
+                    x=[CITY_COORDS[dij_path[i]][1] for i in range(step)],
+                    y=[CITY_COORDS[dij_path[i]][0] for i in range(step)],
+                    mode="lines+markers", line=dict(width=5, color="#00CC96"),
+                    marker=dict(size=12, color="#00CC96"),
+                    name="Dijkstra" if step==len(dij_path) else None, showlegend=(step==len(dij_path)),
+                    hoverinfo="text", hovertext=path_tips[:step],
+                    visible=(step==len(dij_path))))
+        else:
+            fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1] for c in dij_path], y=[CITY_COORDS[c][0] for c in dij_path],
+                mode="lines+markers", line=dict(width=5, color="#00CC96"), marker=dict(size=12, color="#00CC96"),
+                name="Dijkstra", hoverinfo="text", hovertext=path_tips))
+    # BFS path with tooltips
+    if bfs_p and len(bfs_p) > 1:
+        cum_dist_b = [0]
+        for i in range(1, len(bfs_p)):
+            cum_dist_b.append(cum_dist_b[-1] + haversine(CITY_COORDS[bfs_p[i-1]], CITY_COORDS[bfs_p[i]]))
+        path_tips_b = [f"{bfs_p[i]}<br>קפיצה {i}/{len(bfs_p)-1}<br>מרחק מצטבר: {cum_dist_b[i]:.1f} km<br>מחסן: {bfs_p[0]}" for i in range(len(bfs_p))]
+        fig.add_trace(go.Scatter(x=[CITY_COORDS[c][1] for c in bfs_p], y=[CITY_COORDS[c][0] for c in bfs_p],
+            mode="lines+markers", line=dict(width=4, color="#FFA500", dash="dash"),
+            marker=dict(size=10, color="#FFA500", symbol="diamond"),
+            name="BFS", hoverinfo="text", hovertext=path_tips_b))
+    fig.update_layout(height=620, margin=dict(l=0, r=0, t=30, b=0),
+        xaxis=dict(title="Longitude", range=[34.2, 35.7], gridcolor="rgba(0,0,0,0.05)"),
+        yaxis=dict(title="Latitude", range=[29.3, 33.3], gridcolor="rgba(0,0,0,0.05)"),
+        title="מפת ישראל - 39 ערים, 3 מחסנים (🟢<20km 🟡<50km 🔴>50km)",
+        legend=dict(x=0.01, y=0.99, bgcolor="rgba(255,255,255,0.8)"),
+        plot_bgcolor="rgba(240,248,255,0.3)")
     return fig
 
 def main():
