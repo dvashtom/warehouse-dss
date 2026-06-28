@@ -1,6 +1,17 @@
 """
 Warehouse Assignment DSS - BFS/Dijkstra routing algorithm
 Run: source ~/sklearn_env/bin/activate && streamlit run warehouse_assignment_app.py
+
+NOTE: All data currently used in this project is hardcoded.
+FUTURE PRODUCTION UPDATES:
+1. Integrate Google Maps API to calculate the shortest path based on real-time Israeli traffic data.
+2. Replace hardcoded data with live production data loaded from 'star_schema.xlsx'.
+
+# --- PRODUCTION READY DATA LOADING (Uncomment for production) ---
+# import pandas as pd
+# df_orders = pd.read_excel('star_schema.xlsx', sheet_name='ORDERS')
+# ORDERS_PER_CITY = df_orders.set_index('city')['orders'].to_dict()
+# ----------------------------------------------------------------
 """
 import streamlit as st
 import pandas as pd
